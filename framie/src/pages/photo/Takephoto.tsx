@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import h1 from "../../assets/frame_photo.svg";
 import { useLocation, useNavigate } from "react-router-dom";
 
@@ -111,6 +111,8 @@ export default function TakePhoto() {
   const [currentShotIndex, setCurrentShotIndex] = useState(0);
   const [capturedImages, setCapturedImages] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const [isCountingDown, setIsCountingDown] = useState(false);
 
   const shotSlots = useMemo(() => Array.from({ length: shotCount }, (_, index) => index), [shotCount]);
 
@@ -153,11 +155,12 @@ export default function TakePhoto() {
     };
   }, []);
 
-  const handleCaptureShot = async () => {
-    if (isProcessing) return;
+  const handleCaptureShot = useCallback(async () => {
+    if (isProcessing || isCountingDown) return;
 
     if (!frameId) {
       setError("프레임 ID 없이 촬영 중이에요. 저장하려면 프레임 선택 화면에서 다시 들어와 주세요.");
+      return;
     }
 
     if (!videoRef.current) {
@@ -167,6 +170,30 @@ export default function TakePhoto() {
 
     try {
       setError("");
+      setIsCountingDown(true);
+      setCountdown(5);
+
+      await new Promise<void>((resolve) => {
+        let remaining = 5;
+
+        const interval = window.setInterval(() => {
+          remaining -= 1;
+
+          if (remaining > 0) {
+            setCountdown(remaining);
+            return;
+          }
+
+          window.clearInterval(interval);
+          setCountdown(null);
+          resolve();
+        }, 1000);
+      });
+
+      if (!videoRef.current) {
+        throw new Error("카메라가 아직 준비되지 않았어요.");
+      }
+
       setIsProcessing(true);
 
       const capturedBlob = await captureVideoFrame(videoRef.current);
@@ -198,18 +225,21 @@ export default function TakePhoto() {
     } catch (captureError) {
       const message = captureError instanceof Error ? captureError.message : "사진 처리 중 오류가 발생했어요.";
       setError(message);
+      setCountdown(null);
     } finally {
+      setIsCountingDown(false);
       setIsProcessing(false);
     }
-  };
+  }, [capturedImages, currentShotIndex, frameId, frameTitle, isCountingDown, isProcessing, navigate, shotCount]);
 
   const handleResetShots = () => {
     setCurrentShotIndex(0);
     setCapturedImages([]);
     setError("");
+    setCountdown(null);
+    setIsCountingDown(false);
     sessionStorage.removeItem("photoResultData");
   };
-
   return (
     <div
       style={{
@@ -232,6 +262,21 @@ export default function TakePhoto() {
           src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-4Regular.woff2') format('woff2');
           font-weight: 400;
           font-display: swap;
+        }
+
+        @keyframes countdownPulse {
+          0% {
+            transform: scale(0.78);
+            opacity: 0.42;
+          }
+          45% {
+            transform: scale(1);
+            opacity: 1;
+          }
+          100% {
+            transform: scale(1.12);
+            opacity: 0.22;
+          }
         }
       `}</style>
 
@@ -328,6 +373,63 @@ export default function TakePhoto() {
             >
               {Math.min(currentShotIndex + 1, shotCount)} / {shotCount} 컷 진행 중
             </div>
+
+            {isCountingDown && countdown ? (
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  background: "rgba(15, 23, 42, 0.28)",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 14,
+                  zIndex: 2,
+                  backdropFilter: "blur(2px)",
+                }}
+              >
+                <div
+                  style={{
+                    width: 140,
+                    height: 140,
+                    borderRadius: "50%",
+                    background: "rgba(255,255,255,0.2)",
+                    border: "2px solid rgba(255,255,255,0.58)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    animation: "countdownPulse 1s ease-in-out infinite",
+                    boxShadow: "0 18px 40px rgba(15, 23, 42, 0.22)",
+                  }}
+                >
+                  <span
+                    style={{
+                      color: "#ffffff",
+                      fontFamily: "Paperozi",
+                      fontWeight: 600,
+                      fontSize: 58,
+                      lineHeight: 1,
+                    }}
+                  >
+                    {countdown}
+                  </span>
+                </div>
+
+                <p
+                  style={{
+                    margin: 0,
+                    color: "#ffffff",
+                    fontFamily: "Paperozi",
+                    fontWeight: 400,
+                    fontSize: 18,
+                    textShadow: "0 6px 18px rgba(15, 23, 42, 0.3)",
+                  }}
+                >
+                  잠시만요, 곧 촬영돼요
+                </p>
+              </div>
+            ) : null}
           </section>
 
           <aside
@@ -426,7 +528,7 @@ export default function TakePhoto() {
               <button
                 type="button"
                 onClick={handleCaptureShot}
-                disabled={isProcessing}
+                disabled={isProcessing || isCountingDown}
                 style={{
                   border: "none",
                   borderRadius: 18,
@@ -436,11 +538,13 @@ export default function TakePhoto() {
                   fontWeight: 600,
                   fontSize: 16,
                   padding: "16px 18px",
-                  cursor: isProcessing ? "wait" : "pointer",
-                  opacity: isProcessing ? 0.72 : 1,
+                  cursor: isProcessing || isCountingDown ? "wait" : "pointer",
+                  opacity: isProcessing || isCountingDown ? 0.72 : 1,
                 }}
               >
-                {isProcessing
+                {isCountingDown
+                  ? `${countdown ?? 5}초 후 촬영`
+                  : isProcessing
                   ? "배경 제거 중..."
                   : currentShotIndex === shotCount - 1
                   ? "마지막 사진 찍기"
@@ -450,6 +554,7 @@ export default function TakePhoto() {
               <button
                 type="button"
                 onClick={handleResetShots}
+                disabled={isProcessing || isCountingDown}
                 style={{
                   border: "1.5px solid rgba(48, 71, 217, 0.22)",
                   borderRadius: 18,
@@ -459,12 +564,14 @@ export default function TakePhoto() {
                   fontWeight: 400,
                   fontSize: 15,
                   padding: "14px 18px",
-                  cursor: "pointer",
+                  cursor: isProcessing || isCountingDown ? "not-allowed" : "pointer",
+                  opacity: isProcessing || isCountingDown ? 0.68 : 1,
                 }}
               >
                 처음부터 다시 찍기
               </button>
             </div>
+            
 
             {capturedImages.length > 0 ? (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
