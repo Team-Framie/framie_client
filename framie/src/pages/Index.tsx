@@ -24,6 +24,30 @@ export default function Index() {
             커스텀 프레임 촬영
           </button>
         </div>
+        <div
+          style={{
+            marginTop: "18px",
+            display: "flex",
+            justifyContent: "center",
+          }}
+        >
+          <button
+            type="button"
+            onClick={go("/mypage")}
+            aria-label="마이페이지로 이동"
+            style={{
+              border: "none",
+              background: "transparent",
+              fontSize: "15px",
+              fontWeight: 600,
+              color: "#5B6CFF",
+              cursor: "pointer",
+              padding: "6px 10px",
+            }}
+          >
+            마이페이지로 가기 →
+          </button>
+        </div>
       </main>
     </div>
   );
