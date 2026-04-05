@@ -39,16 +39,6 @@ function getFrameAspectRatio(shotCount: number) {
   return shotCount === 3 ? 2.55 : 0.62;
 }
 
-function generateRandomCode() {
-  const letters = Array.from({ length: 3 }, () =>
-    String.fromCharCode(65 + Math.floor(Math.random() * 26))
-  ).join("");
-  const numbers = Array.from({ length: 3 }, () =>
-    Math.floor(Math.random() * 10).toString()
-  ).join("");
-  return `${letters}${numbers}`;
-}
-
 function getDisplayUserId(email?: string | null, fallback = "게스트") {
   if (!email) return fallback;
   const [localPart] = email.split("@");
@@ -306,7 +296,7 @@ export default function PhotoResult() {
   const [saveStatusMessage, setSaveStatusMessage] = useState("");
   const [selectedFrameColorKey, setSelectedFrameColorKey] = useState<FrameColorOption["key"]>("classic");
 
-  useEffect(() => { setShareCode(generateRandomCode()); }, []);
+  // 코드는 저장(handleSave) 후 백엔드가 생성한 값으로 세팅됨
 
   useEffect(() => {
     let mounted = true;
@@ -349,8 +339,6 @@ export default function PhotoResult() {
     return () => { cancelled = true; };
   }, [photos, shotCount, selectedFrameColor]);
 
-  const handleGenerateCode = () => { setShareCode(generateRandomCode()); setIsCopied(false); };
-
   const handleCopyCode = async () => {
     try {
       await navigator.clipboard.writeText(shareCode);
@@ -368,7 +356,6 @@ export default function PhotoResult() {
   const handleSave = async () => {
     if (!photos.length) { window.alert("저장할 컷이 없어요."); return; }
     if (!authUserId) { window.alert("로그인한 사용자 정보가 필요해요."); return; }
-    if (!shareCode) { window.alert("공유 코드가 없어요."); return; }
 
     setIsSaving(true);
     setSaveStatus("idle");
@@ -377,7 +364,7 @@ export default function PhotoResult() {
     try {
       const resolvedFrameId = await resolveFrameId({ frameId, frameTitle, shotCount });
       const sessionId = crypto.randomUUID();
-      const safeCode = getSafeFilePart(shareCode, "photo");
+      const safeCode = getSafeFilePart(sessionId.slice(0, 8), "photo");
       const safeUser = getSafeFilePart(userId, "guest");
       const safeTitle = getSafeFilePart(frameTitle || `frame-${shotCount}`, `frame-${shotCount}`);
 
@@ -395,7 +382,7 @@ export default function PhotoResult() {
         await uploadDataUrlToStorage(previewPath, finalImageUrl);
       }
 
-      await api.sessions.create({
+      const createdSession = await api.sessions.create({
         frame_id: resolvedFrameId,
         frame_owner_id: authUserId,
         user_message: message || undefined,
@@ -405,6 +392,11 @@ export default function PhotoResult() {
         display_user_id: userId,
         photos: uploadedCuts,
       });
+
+      // 백엔드에서 생성된 실제 공유 코드로 업데이트
+      if (createdSession?.share_code) {
+        setShareCode(createdSession.share_code);
+      }
 
       setSaveStatus("success");
       setSaveStatusMessage("저장이 완료됐어요.");
@@ -445,12 +437,9 @@ export default function PhotoResult() {
 
             <p style={{ margin: 0, fontSize: "16px", fontWeight: 400, opacity: 0.95 }}>프레임 : {frameTitle}</p>
 
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
-              <p style={{ margin: 0, fontSize: "16px", fontWeight: 400, opacity: 0.95 }}>코드 : {shareCode}</p>
-              <button type="button" onClick={handleGenerateCode} style={{ border: "1.5px solid rgba(255,255,255,0.85)", borderRadius: "999px", background: "transparent", color: WHITE, padding: "8px 14px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>
-                새 코드 생성
-              </button>
-            </div>
+            <p style={{ margin: 0, fontSize: "16px", fontWeight: 400, opacity: 0.95 }}>
+              코드 : {shareCode || "저장 후 생성돼요"}
+            </p>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
               <p style={{ margin: 0, fontSize: "16px", fontWeight: 400, opacity: 0.95 }}>프레임 색상</p>
