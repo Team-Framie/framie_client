@@ -428,7 +428,7 @@ export default function TakePhoto() {
                   lineHeight: 1.5,
                 }}
               >
-                사진을 찍으면 remove.bg로 배경 제거 후 투명 PNG 상태로 결과 화면에 넘겨져요.
+                사진을 찍으면 배경 제거 후 투명 PNG 상태로 결과 화면에 넘겨져요.
               </p>
             </div>
 
