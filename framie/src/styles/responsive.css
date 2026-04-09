@@ -42,7 +42,27 @@
   width: min(78vw, 520px);
 }
 
+/* 프레임 선택 페이지 모바일 슬라이더 */
+.photo-option-slider {
+  scrollbar-width: none;
+}
+
+.photo-option-slider::-webkit-scrollbar {
+  display: none;
+}
+
 @media (max-width: 768px) {
+  .photo-option-slider {
+    display: flex !important;
+    gap: 0 !important;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    padding: 10px 0 18px;
+    margin: 0 calc(50% - 50vw);
+    padding-inline: calc(50vw - 135px);
+    -webkit-overflow-scrolling: touch;
+  }
+}
   .framie-result-grid,
   .framie-takephoto-grid {
     grid-template-columns: 1fr;
