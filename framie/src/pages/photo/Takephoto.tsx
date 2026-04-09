@@ -1,123 +1,19 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useMemo, useState, useCallback } from "react";
 import h1 from "../../assets/frame_photo.svg";
 import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "../../lib/api";
-
-const PRIMARY = "#3047d9";
-
-type ResultPayload = {
-  frameId: string;
-  shotCount: number;
-  frameTitle: string;
-  photos: string[];
-  originals: string[];
-  sourceType?: string;
-  frameOwnerId?: string;
-  overlayPhotos?: string[];
-};
-
-function loadImageFromUrl(src: string, crossOrigin = true) {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
-    const img = new Image();
-    if (crossOrigin) img.crossOrigin = "anonymous";
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("오버레이 이미지를 불러오지 못했어요."));
-    img.src = src;
-  });
-}
-
-async function compositeOverlay(
-  userPhotoBlob: Blob,
-  overlayUrl: string,
-  side: "left" | "right" = "left"
-): Promise<Blob> {
-  const userUrl = URL.createObjectURL(userPhotoBlob);
-  try {
-    const [userImg, overlayImg] = await Promise.all([
-      loadImageFromUrl(userUrl, false),
-      loadImageFromUrl(overlayUrl, true),
-    ]);
-    const canvas = document.createElement("canvas");
-    canvas.width = userImg.naturalWidth;
-    canvas.height = userImg.naturalHeight;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("캔버스를 만들 수 없어요.");
-    // 1) 유저 사진을 먼저 (뒤에 깔림)
-    ctx.drawImage(userImg, 0, 0);
-    // 2) 오버레이(프레임 주인 누끼)를 위에 그리기 (앞에 보임)
-    const scale = canvas.height / overlayImg.naturalHeight;
-    const ow = overlayImg.naturalWidth * scale;
-    const oh = canvas.height;
-    const ox = side === "left" ? 0 : canvas.width - ow;
-    const oy = 0;
-    ctx.drawImage(overlayImg, ox, oy, ow, oh);
-    return await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob(
-        (blob) => (blob ? resolve(blob) : reject(new Error("합성 결과를 만들 수 없어요."))),
-        "image/png"
-      );
-    });
-  } finally {
-    URL.revokeObjectURL(userUrl);
-  }
-}
+import { useCamera } from "../../hooks/useCamera";
+import { compositeOverlay, blobToDataUrl, captureVideoFrame } from "../../utils/canvas";
+import BackButton from "../../components/BackButton";
+import { PRIMARY_DARK as PRIMARY } from "../../styles/theme";
+import type { ResultPayload } from "../../types/photos";
 
 async function removeBackground(imageBlob: Blob) {
   return api.images.removeBg(imageBlob);
 }
 
-function blobToDataUrl(blob: Blob) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      if (typeof reader.result === "string") {
-        resolve(reader.result);
-      } else {
-        reject(new Error("이미지 변환에 실패했어요."));
-      }
-    };
-    reader.onerror = () => reject(new Error("이미지 변환에 실패했어요."));
-    reader.readAsDataURL(blob);
-  });
-}
-
-function captureVideoFrame(video: HTMLVideoElement) {
-  const canvas = document.createElement("canvas");
-  const width = video.videoWidth || 1280;
-  const height = video.videoHeight || 720;
-
-  canvas.width = width;
-  canvas.height = height;
-
-  const context = canvas.getContext("2d");
-  if (!context) {
-    throw new Error("카메라 캡처를 처리할 수 없어요.");
-  }
-
-  context.save();
-  context.translate(width, 0);
-  context.scale(-1, 1);
-  context.drawImage(video, 0, 0, width, height);
-  context.restore();
-
-  return new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob(
-      (blob) => {
-        if (!blob) {
-          reject(new Error("사진 캡처에 실패했어요."));
-          return;
-        }
-        resolve(blob);
-      },
-      "image/jpeg",
-      0.92
-    );
-  });
-}
-
 export default function TakePhoto() {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  const { videoRef, error, setError } = useCamera();
   const location = useLocation();
   const navigate = useNavigate();
   const frameId = location.state?.frameId || "";
@@ -133,7 +29,6 @@ export default function TakePhoto() {
   const isRetake =
     typeof rawRetakeIndex === "number" && rawRetakeIndex >= 0 && rawRetakeIndex < shotCount;
   const retakeIndex: number | null = isRetake ? rawRetakeIndex : null;
-  const [error, setError] = useState<string>("");
   const [currentShotIndex, setCurrentShotIndex] = useState(isRetake ? (retakeIndex as number) : 0);
   const [capturedImages, setCapturedImages] = useState<string[]>(isRetake ? initialPhotos : []);
   const [capturedOriginals, setCapturedOriginals] = useState<string[]>(isRetake ? initialOriginals : []);
@@ -142,45 +37,6 @@ export default function TakePhoto() {
   const [isCountingDown, setIsCountingDown] = useState(false);
 
   const shotSlots = useMemo(() => Array.from({ length: shotCount }, (_, index) => index), [shotCount]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const startCamera = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "environment" } },
-          audio: false,
-        });
-
-        if (cancelled) {
-          stream.getTracks().forEach((t) => t.stop());
-          return;
-        }
-
-        streamRef.current = stream;
-
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play().catch(() => {
-            /* ignore */
-          });
-        }
-      } catch {
-        setError("카메라 권한을 허용해 주세요. 브라우저에서 카메라 접근이 차단되었을 수 있어요.");
-      }
-    };
-
-    startCamera();
-
-    return () => {
-      cancelled = true;
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((t) => t.stop());
-        streamRef.current = null;
-      }
-    };
-  }, []);
 
   const handleCaptureShot = useCallback(async () => {
     if (isProcessing || isCountingDown) return;
@@ -230,7 +86,6 @@ export default function TakePhoto() {
       let finalImageUrl: string;
 
       if (isCustomShoot) {
-        // 커스텀 프레임 촬영: 누끼 안 따고, 원본 사진 위에 오버레이(프레임 주인)를 앞에 합성
         const overlayForShot = overlayPhotos[shotIndex];
         const overlaySide: "left" | "right" = shotIndex % 2 === 0 ? "left" : "right";
         if (overlayForShot) {
@@ -245,7 +100,6 @@ export default function TakePhoto() {
           finalImageUrl = originalImageUrl;
         }
       } else {
-        // 일반 촬영: 배경 제거
         const userTransparentBlob = await removeBackground(capturedBlob);
         finalImageUrl = await blobToDataUrl(userTransparentBlob);
       }
@@ -266,7 +120,6 @@ export default function TakePhoto() {
       setCapturedImages(nextImages);
       setCapturedOriginals(nextOriginals);
 
-      // 단일 컷 재촬영 모드: 바로 결과 화면으로 돌아가기
       if (isRetake) {
         const resultPayload: ResultPayload = {
           frameId,
@@ -314,7 +167,7 @@ export default function TakePhoto() {
       setIsCountingDown(false);
       setIsProcessing(false);
     }
-  }, [capturedImages, capturedOriginals, currentShotIndex, frameId, frameTitle, isCountingDown, isProcessing, isRetake, retakeIndex, navigate, shotCount, isCustomShoot, overlayPhotos, sourceType, frameOwnerId]);
+  }, [capturedImages, capturedOriginals, currentShotIndex, frameId, frameTitle, isCountingDown, isProcessing, isRetake, retakeIndex, navigate, shotCount, isCustomShoot, overlayPhotos, sourceType, frameOwnerId, setError, videoRef]);
 
   const handleResetShots = () => {
     setCurrentShotIndex(0);
@@ -328,20 +181,6 @@ export default function TakePhoto() {
   return (
     <div className="framie-takephoto-page">
       <style>{`
-        @font-face {
-          font-family: 'Paperozi';
-          src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-6SemiBold.woff2') format('woff2');
-          font-weight: 600;
-          font-display: swap;
-        }
-
-        @font-face {
-          font-family: 'Paperozi';
-          src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-4Regular.woff2') format('woff2');
-          font-weight: 400;
-          font-display: swap;
-        }
-
         @keyframes countdownPulse {
           0% {
             transform: scale(0.78);
@@ -359,23 +198,8 @@ export default function TakePhoto() {
       `}</style>
 
       <div style={{ maxWidth: 1080, margin: "0 auto" }}>
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          style={{
-            border: "none",
-            background: "transparent",
-            color: PRIMARY,
-            fontFamily: "Paperozi",
-            fontWeight: 600,
-            fontSize: 16,
-            cursor: "pointer",
-            padding: 0,
-            marginBottom: 20,
-          }}
-        >
-          ← 돌아가기
-        </button>
+        <BackButton variant="text" color={PRIMARY} />
+        <div style={{ marginBottom: 20 }} />
 
         <header style={{ textAlign: "center", marginBottom: 28 }}>
           <img
@@ -390,7 +214,6 @@ export default function TakePhoto() {
               margin: "14px 0 0",
               fontSize: 20,
               color: PRIMARY,
-              fontFamily: "Paperozi",
               fontWeight: 400,
             }}
           >
@@ -458,7 +281,6 @@ export default function TakePhoto() {
                 borderRadius: 999,
                 background: "rgba(255,255,255,0.88)",
                 color: PRIMARY,
-                fontFamily: "Paperozi",
                 fontWeight: 600,
                 fontSize: 15,
               }}
@@ -500,7 +322,6 @@ export default function TakePhoto() {
                   <span
                     style={{
                       color: "#ffffff",
-                      fontFamily: "Paperozi",
                       fontWeight: 600,
                       fontSize: 58,
                       lineHeight: 1,
@@ -514,7 +335,6 @@ export default function TakePhoto() {
                   style={{
                     margin: 0,
                     color: "#ffffff",
-                    fontFamily: "Paperozi",
                     fontWeight: 400,
                     fontSize: 18,
                     textShadow: "0 6px 18px rgba(15, 23, 42, 0.3)",
@@ -542,7 +362,6 @@ export default function TakePhoto() {
               <p
                 style={{
                   margin: 0,
-                  fontFamily: "Paperozi",
                   fontWeight: 600,
                   fontSize: 22,
                   color: PRIMARY,
@@ -553,7 +372,6 @@ export default function TakePhoto() {
               <p
                 style={{
                   margin: "8px 0 0",
-                  fontFamily: "Paperozi",
                   fontWeight: 400,
                   fontSize: 14,
                   color: "#5b67b8",
@@ -585,7 +403,6 @@ export default function TakePhoto() {
                         : isActive
                         ? "rgba(48, 71, 217, 0.05)"
                         : "#ffffff",
-                      fontFamily: "Paperozi",
                     }}
                   >
                     <div
@@ -636,7 +453,6 @@ export default function TakePhoto() {
                   borderRadius: 18,
                   background: PRIMARY,
                   color: "#ffffff",
-                  fontFamily: "Paperozi",
                   fontWeight: 600,
                   fontSize: 16,
                   padding: "16px 18px",
@@ -665,7 +481,6 @@ export default function TakePhoto() {
                     borderRadius: 18,
                     background: "#ffffff",
                     color: PRIMARY,
-                    fontFamily: "Paperozi",
                     fontWeight: 400,
                     fontSize: 15,
                     padding: "14px 18px",
@@ -677,7 +492,7 @@ export default function TakePhoto() {
                 </button>
               )}
             </div>
-            
+
 
             {capturedImages.length > 0 ? (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
@@ -712,7 +527,6 @@ export default function TakePhoto() {
                   margin: 0,
                   color: "#5b5b5b",
                   fontSize: 14,
-                  fontFamily: "Paperozi",
                   lineHeight: 1.5,
                 }}
               >

@@ -2,73 +2,13 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import h1 from "../../assets/Mypage.svg";
 import { api, isLoggedIn } from "../../lib/api";
+import { getStorageUrl } from "../../utils/storage";
+import { downloadImage, formatDate } from "../../utils/download";
+import { PRIMARY, MUTED, TEXT_MAIN, BORDER, SOFT_PANEL, SOFT_CARD } from "../../styles/theme";
+import DownloadIcon from "../../components/DownloadIcon";
+import Modal from "../../components/Modal";
+import type { Session } from "../../types/photos";
 
-const PRIMARY = "#4050d6";
-const MUTED = "#8b8b95";
-const TEXT_MAIN = "#1f2552";
-const BORDER = "rgba(64, 80, 214, 0.08)";
-const SOFT_PANEL = "#eef0fb";
-const SOFT_CARD = "#f8f9ff";
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const BUCKET = "photo-results";
-
-function getStorageUrl(path: string | null | undefined): string | null {
-  if (!path) return null;
-  return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${path}`;
-}
-
-function formatDate(iso: string) {
-  const d = new Date(iso);
-  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
-}
-
-async function downloadImage(url: string, filename: string) {
-  try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const blob = await res.blob();
-    const blobUrl = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = blobUrl;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(blobUrl);
-  } catch (e) {
-    console.error("이미지 다운로드 실패", e);
-    alert("이미지 저장에 실패했어요. 잠시 후 다시 시도해주세요.");
-  }
-}
-
-const DownloadIcon = ({ size = 18 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-    <polyline points="7 10 12 15 17 10" />
-    <line x1="12" y1="15" x2="12" y2="3" />
-  </svg>
-);
-
-type SessionPhoto = {
-  id: string;
-  shot_order: number;
-  original_path: string | null;
-  processed_path: string | null;
-};
-
-type Session = {
-  id: string;
-  created_at: string;
-  source_type: string | null;
-  photographer_id: string | null;
-  frame_owner_id: string | null;
-  result_thumbnail_path: string | null;
-  result_image_path: string | null;
-  frame: { title: string; shot_count: number } | null;
-  photos: SessionPhoto[];
-  share_code: { code: string } | null;
-};
 
 export default function Mypage() {
   const navigate = useNavigate();
@@ -151,14 +91,8 @@ export default function Mypage() {
 
       {/* 사진 모달 */}
       {selectedSession && (
-        <div
-          onClick={() => setSelectedSession(null)}
-          style={{ position: "fixed", inset: 0, background: "rgba(10,14,40,0.72)", backdropFilter: "blur(6px)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{ background: "#fff", borderRadius: "32px", padding: "28px 24px", width: "100%", maxWidth: "640px", maxHeight: "85vh", overflowY: "auto", boxShadow: "0 32px 80px rgba(10,14,40,0.24)" }}
-          >
+        <Modal onClose={() => setSelectedSession(null)}>
+          <div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
               <div>
                 <p style={{ margin: 0, fontSize: "18px", fontWeight: 800, color: TEXT_MAIN }}>{formatDate(selectedSession.created_at)}</p>
@@ -230,7 +164,7 @@ export default function Mypage() {
               </div>
             )}
           </div>
-        </div>
+        </Modal>
       )}
       <div style={{ width: "100%", maxWidth: "1200px", margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "20px", alignItems: "start" }}>
 

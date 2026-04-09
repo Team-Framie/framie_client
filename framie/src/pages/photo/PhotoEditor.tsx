@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { loadImage } from "../../utils/storage";
+import { PRIMARY } from "../../styles/theme";
 
 type Mode = "erase" | "restore";
 
@@ -10,19 +12,9 @@ type Props = {
   onApply: (dataUrl: string) => void;
 };
 
-const PRIMARY = "#4050d6";
 const ERASE_COLOR = "rgba(255,80,80,0.95)";
 const RESTORE_COLOR = "rgba(46,204,113,0.95)";
 const MAX_HISTORY = 30;
-
-function loadImage(src: string) {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("이미지를 불러오지 못했어요."));
-    img.src = src;
-  });
-}
 
 export default function PhotoEditor({ transparentSrc, originalSrc, hasTransparentBg = true, onCancel, onApply }: Props) {
   const displayRef = useRef<HTMLCanvasElement | null>(null);

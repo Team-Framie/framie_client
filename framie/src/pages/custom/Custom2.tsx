@@ -1,18 +1,8 @@
 import "./Custom2.css";
 import h1 from "../../assets/frame_select.svg";
 import { useLocation, useNavigate } from "react-router-dom";
-
-type Custom2State = {
-  frameId: string;
-  shotCount: number;
-  frameTitle: string;
-  overlayPhotos: string[];
-  sourceType: string;
-  frameOwnerId?: string;
-  displayUserId?: string | null;
-  userMessage?: string | null;
-  resultImageUrl?: string | null;
-};
+import BackButton from "../../components/BackButton";
+import type { Custom2State } from "../../types/photos";
 
 export default function Custom2() {
   const navigate = useNavigate();
@@ -44,14 +34,7 @@ export default function Custom2() {
 
   return (
     <div className="custom2-page">
-      <button
-        type="button"
-        className="custom1-back"
-        onClick={handleBack}
-        aria-label="뒤로가기"
-      >
-        <span className="custom1-back-arrow">‹</span>
-      </button>
+      <BackButton onClick={handleBack} />
       <div className="custom2-split">
         <section className="custom2-left" aria-label="Preview">
           <div className="custom2-previewCard">
