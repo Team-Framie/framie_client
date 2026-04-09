@@ -3,10 +3,11 @@ import { useLocation, useNavigate } from "react-router-dom";
 import h1 from "../../assets/photo_result.svg";
 import { api, isLoggedIn } from "../../lib/api";
 import PhotoEditor from "./PhotoEditor";
+import { loadImage } from "../../utils/storage";
+import { downloadDataUrl } from "../../utils/download";
+import { roundedRect } from "../../utils/canvas";
+import { PAGE_BG, PRIMARY, WHITE } from "../../styles/theme";
 
-const PAGE_BG = "#f5f4ee";
-const PRIMARY = "#4050d6";
-const WHITE = "#ffffff";
 const RESULT_STORAGE_BUCKET = "photo-results";
 
 const FRAME_COLOR_OPTIONS = [
@@ -53,13 +54,6 @@ function getDisplayUserId(email?: string | null, fallback = "게스트") {
 function getSafeFilePart(value: string, fallback: string) {
   const normalized = value.trim().replace(/\s+/g, "-").replace(/[^a-zA-Z0-9-_]/g, "");
   return normalized || fallback;
-}
-
-function downloadDataUrl(dataUrl: string, fileName: string) {
-  const link = document.createElement("a");
-  link.href = dataUrl;
-  link.download = fileName;
-  link.click();
 }
 
 async function dataUrlToBlob(dataUrl: string) {
@@ -125,18 +119,6 @@ function getThreeCutBand() {
   };
 }
 
-function roundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
-  const radius = Math.min(r, w / 2, h / 2);
-  ctx.beginPath();
-  ctx.moveTo(x + radius, y);
-  ctx.arcTo(x + w, y, x + w, y + h, radius);
-  ctx.arcTo(x + w, y + h, x, y + h, radius);
-  ctx.arcTo(x, y + h, x, y, radius);
-  ctx.arcTo(x, y, x + w, y, radius);
-  ctx.closePath();
-}
-
-
 function fitSlotToAspect(slot: Slot, targetAspect: number, shotCount: number): Slot {
   if (shotCount === 3) return slot;
   if (shotCount === 4) {
@@ -176,15 +158,6 @@ function applySlotGap(slot: Slot, shotCount: number): Slot {
     top: slot.top + 0.5,
     height: slot.height - 1,
   };
-}
-
-async function loadImage(src: string) {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("이미지를 불러오지 못했어요."));
-    img.src = src;
-  });
 }
 
 async function buildTransparentResultImage(photos: string[], shotCount: number, frameColor: FrameColorOption) {

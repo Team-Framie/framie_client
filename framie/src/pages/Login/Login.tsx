@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import LoginLogo from "../../assets/Login_Logo.svg";
 import Logo from "../../assets/Framie_white.svg";
 import { api } from "../../lib/api";
+import ErrorMessage from "../../components/ErrorMessage";
 
 
 
@@ -80,18 +81,7 @@ export default function Login() {
               disabled={isLoading}
             />
 
-            {errorMessage ? (
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: "0.9rem",
-                  color: "#ff4d4f",
-                  textAlign: "center",
-                }}
-              >
-                {errorMessage}
-              </p>
-            ) : null}
+            <ErrorMessage message={errorMessage} />
 
             <div className="login-links">
               <button

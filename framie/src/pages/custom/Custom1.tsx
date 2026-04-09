@@ -3,18 +3,10 @@ import { useNavigate } from "react-router-dom";
 import "./Custom1.css";
 import h1 from "../../assets/customlogo.svg";
 import { api } from "../../lib/api";
-
-type Frame = {
-  id: string;
-  title: string;
-  shot_count: number;
-};
-
-type SessionPhoto = {
-  shot_order: number;
-  original_path: string | null;
-  processed_path: string | null;
-};
+import { getStorageUrl } from "../../utils/storage";
+import BackButton from "../../components/BackButton";
+import ErrorMessage from "../../components/ErrorMessage";
+import type { Frame, SessionPhoto } from "../../types/photos";
 
 type Session = {
   id: string;
@@ -23,14 +15,6 @@ type Session = {
   frame: Frame | null;
   photos: SessionPhoto[] | null;
 };
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const OVERLAY_BUCKET = "photo-results";
-
-function getStorageUrl(path: string | null | undefined): string | null {
-  if (!path) return null;
-  return `${SUPABASE_URL}/storage/v1/object/public/${OVERLAY_BUCKET}/${path}`;
-}
 
 export default function Custom1() {
   const navigate = useNavigate();
@@ -86,14 +70,7 @@ export default function Custom1() {
 
   return (
     <div className="custom1-page">
-      <button
-        type="button"
-        className="custom1-back"
-        onClick={() => navigate(-1)}
-        aria-label="뒤로가기"
-      >
-        <span className="custom1-back-arrow">‹</span>
-      </button>
+      <BackButton />
 
       <main className="custom1-container">
         <img src={h1} alt="Custom1" className="custom1-logo" />
@@ -112,11 +89,7 @@ export default function Custom1() {
           />
         </label>
 
-        {error && (
-          <p style={{ margin: 0, fontSize: "0.9rem", color: "#ff4d4f", textAlign: "center" }}>
-            {error}
-          </p>
-        )}
+        <ErrorMessage message={error} />
 
         <button
           type="button"

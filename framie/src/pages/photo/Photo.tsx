@@ -1,21 +1,6 @@
 import h1 from "../../assets/frame_select_blue.svg";
 import { useNavigate } from "react-router-dom";
-
-const fontFaceStyles = `
-  @font-face {
-    font-family: 'Paperozi';
-    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-6SemiBold.woff2') format('woff2');
-    font-weight: 600;
-    font-display: swap;
-  }
-
-  @font-face {
-    font-family: 'Paperozi';
-    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-4Regular.woff2') format('woff2');
-    font-weight: 400;
-    font-display: swap;
-  }
-`;
+import BackButton from "../../components/BackButton";
 
 const frameOptions = [
   {
@@ -44,17 +29,8 @@ const frameOptions = [
 export default function Photo() {
   const navigate = useNavigate();
   return (
-    <>
-      <style>{fontFaceStyles}</style>
-      <div style={styles.page}>
-      <button
-        type="button"
-        onClick={() => navigate(-1)}
-        aria-label="뒤로가기"
-        style={styles.backButton}
-      >
-        <span style={{ marginTop: -3 }}>‹</span>
-      </button>
+    <div style={styles.page}>
+      <BackButton />
       <main style={styles.container}>
         <header style={styles.header}>
           <img src={h1} alt="프레임 선택" style={styles.titleImage} />
@@ -125,7 +101,6 @@ export default function Photo() {
         </section>
       </main>
     </div>
-    </>
   );
 }
 
@@ -139,26 +114,6 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "40px 24px",
     boxSizing: "border-box",
     position: "relative",
-  },
-  backButton: {
-    position: "absolute",
-    top: "max(20px, env(safe-area-inset-top, 20px))",
-    left: "max(20px, env(safe-area-inset-left, 20px))",
-    width: 44,
-    height: 44,
-    borderRadius: "50%",
-    border: "none",
-    background: "#ffffff",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-    color: "#3d56dd",
-    fontSize: 28,
-    lineHeight: 1,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    cursor: "pointer",
-    padding: 0,
-    zIndex: 10,
   },
   container: {
     width: "100%",
@@ -180,7 +135,6 @@ const styles: Record<string, React.CSSProperties> = {
   },
   subtitle: {
     margin: 0,
-    fontFamily: 'Paperozi, system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", Arial, sans-serif',
     fontSize: "clamp(20px, 2vw, 34px)",
     fontWeight: 400,
     color: "#3d56dd",
@@ -260,14 +214,12 @@ const styles: Record<string, React.CSSProperties> = {
   },
   optionTitle: {
     fontSize: "36px",
-    fontFamily: 'Paperozi, system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", Arial, sans-serif',
     fontWeight: 600,
     color: "#3d56dd",
     lineHeight: 1.1,
   },
   optionDescription: {
     fontSize: "17px",
-    fontFamily: 'Paperozi, system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", Arial, sans-serif',
     color: "rgba(61, 86, 221, 0.8)",
     fontWeight: 400,
   },

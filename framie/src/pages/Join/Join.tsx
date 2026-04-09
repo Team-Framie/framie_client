@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import JoinLogo from "../../assets/Join_Logo.svg";
 import Logo from "../../assets/Framie_blue.svg";
 import { api } from "../../lib/api";
+import ErrorMessage from "../../components/ErrorMessage";
 
 export default function Join() {
   const navigate = useNavigate();
@@ -109,18 +110,7 @@ export default function Join() {
               disabled={loading}
             />
 
-            {errorMessage ? (
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: "0.9rem",
-                  color: "#ff4d4f",
-                  textAlign: "center",
-                }}
-              >
-                {errorMessage}
-              </p>
-            ) : null}
+            <ErrorMessage message={errorMessage} />
 
             <div className="join-links">
               <button
