@@ -7,8 +7,7 @@ export type Frame = {
 export type SessionPhoto = {
   id?: string;
   shot_order: number;
-  original_path: string | null;
-  processed_path: string | null;
+  photo_url: string | null;
 };
 
 export type Session = {
@@ -17,8 +16,8 @@ export type Session = {
   source_type: string | null;
   photographer_id: string | null;
   frame_owner_id: string | null;
-  result_thumbnail_path: string | null;
-  result_image_path: string | null;
+  result_thumbnail_url: string | null;
+  result_image_url: string | null;
   frame: { title: string; shot_count: number } | null;
   photos: SessionPhoto[];
   share_code: { code: string } | null;

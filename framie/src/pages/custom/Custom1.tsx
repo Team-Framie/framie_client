@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import "./Custom1.css";
 import h1 from "../../assets/customlogo.svg";
 import { api } from "../../lib/api";
-import { getStorageUrl } from "../../utils/storage";
 import BackButton from "../../components/BackButton";
 import ErrorMessage from "../../components/ErrorMessage";
 import type { Frame, SessionPhoto } from "../../types/photos";
@@ -14,6 +13,10 @@ type Session = {
   frame_owner_id: string | null;
   frame: Frame | null;
   photos: SessionPhoto[] | null;
+  result_image_url: string | null;
+  result_thumbnail_url: string | null;
+  creator_username: string | null;
+  user_message: string | null;
 };
 
 export default function Custom1() {
@@ -42,11 +45,10 @@ export default function Custom1() {
 
       const sortedPhotos = [...(session.photos ?? [])].sort((a, b) => a.shot_order - b.shot_order);
       const overlayPhotos = sortedPhotos
-        .map((p) => getStorageUrl(p.processed_path ?? p.original_path))
+        .map((p) => p.photo_url)
         .filter((u): u is string => !!u);
 
-      const resultImagePath = (session as any).result_image_path ?? (session as any).result_thumbnail_path ?? null;
-      const resultImageUrl = resultImagePath ? getStorageUrl(resultImagePath) : null;
+      const resultImageUrl = session.result_image_url ?? session.result_thumbnail_url ?? null;
 
       navigate("/custom2", {
         state: {
@@ -56,8 +58,8 @@ export default function Custom1() {
           overlayPhotos,
           sourceType: "other_frame",
           frameOwnerId: session.frame_owner_id ?? undefined,
-          displayUserId: (session as any).display_user_id ?? null,
-          userMessage: (session as any).user_message ?? null,
+          displayUserId: session.creator_username ? `@${session.creator_username}` : null,
+          userMessage: session.user_message ?? null,
           resultImageUrl,
         },
       });

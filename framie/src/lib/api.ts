@@ -1,31 +1,35 @@
+import { supabase } from "./supabase";
+
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api/v1";
 
-function getToken(): string | null {
-  return localStorage.getItem("access_token");
+async function getToken(): Promise<string | null> {
+  const { data } = await supabase.auth.getSession();
+  return data.session?.access_token ?? null;
 }
 
 function handleUnauthorized() {
-  clearToken();
-  localStorage.removeItem("refresh_token");
+  supabase.auth.signOut();
   if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
     window.location.replace("/login");
   }
 }
 
-export function setToken(token: string) {
-  localStorage.setItem("access_token", token);
-}
-
-export function clearToken() {
-  localStorage.removeItem("access_token");
-}
-
 export function isLoggedIn(): boolean {
-  return !!getToken();
+  try {
+    // Supabase v2 세션 키: sb-{project-ref}-auth-token
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+    const projectRef = new URL(supabaseUrl).hostname.split(".")[0];
+    const stored = localStorage.getItem(`sb-${projectRef}-auth-token`);
+    if (!stored) return false;
+    const parsed = JSON.parse(stored);
+    return !!parsed?.access_token;
+  } catch {
+    return false;
+  }
 }
 
 async function request<T = unknown>(path: string, options: RequestInit = {}): Promise<T> {
-  const token = getToken();
+  const token = await getToken();
   const headers: Record<string, string> = { ...(options.headers as Record<string, string>) };
 
   if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -53,14 +57,23 @@ export const api = {
     },
 
     async login(email: string, password: string) {
-      const data = await request<{
-        access_token: string;
-        refresh_token: string;
-        user: { id: string; email: string; username: string | null };
-      }>("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
-      setToken(data.access_token);
-      if (data.refresh_token) localStorage.setItem("refresh_token", data.refresh_token);
-      return data;
+      // Supabase 세션으로 로그인 — 토큰을 직접 localStorage에 저장하지 않음
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw new Error(error.message);
+
+      // NestJS에 username 조회
+      const me = await request<{ id: string; email: string; username: string | null; created_at: string }>("/auth/me");
+      return {
+        user: {
+          id: me.id,
+          email: me.email,
+          username: me.username,
+        },
+      };
+    },
+
+    async logout() {
+      await supabase.auth.signOut();
     },
 
     me() {
@@ -86,9 +99,9 @@ export const api = {
 
   images: {
     async removeBg(imageBlob: Blob): Promise<Blob> {
+      const token = await getToken();
       const formData = new FormData();
       formData.append("image", imageBlob, "capture.png");
-      const token = getToken();
       const res = await fetch(`${API_BASE}/images/remove-bg`, {
         method: "POST",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -102,11 +115,11 @@ export const api = {
     },
 
     async upload(file: Blob, bucket: string, path: string) {
+      const token = await getToken();
       const formData = new FormData();
       formData.append("file", file, "image.png");
       formData.append("bucket", bucket);
       formData.append("path", path);
-      const token = getToken();
       const res = await fetch(`${API_BASE}/images/upload`, {
         method: "POST",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -124,13 +137,11 @@ export const api = {
   sessions: {
     create(data: {
       frame_id: string;
-      frame_owner_id?: string;
       source_type?: string;
       user_message?: string;
       result_image_path?: string;
       result_thumbnail_path?: string;
       is_saved?: boolean;
-      display_user_id?: string;
       photos: Array<{
         shot_order: number;
         original_path?: string;

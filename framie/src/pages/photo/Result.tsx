@@ -62,11 +62,11 @@ async function dataUrlToBlob(dataUrl: string) {
   return response.blob();
 }
 
-async function uploadDataUrlToStorage(path: string, dataUrl: string) {
+async function uploadDataUrlToStorage(path: string, dataUrl: string): Promise<string> {
   const blob = await dataUrlToBlob(dataUrl);
   const file = new File([blob], "image.png", { type: blob.type || "image/png" });
-  await api.images.upload(file, RESULT_STORAGE_BUCKET, path);
-  return path;
+  const result = await api.images.upload(file, RESULT_STORAGE_BUCKET, path);
+  return result.path; // 서버가 userId/ 접두어를 붙인 실제 경로 사용
 }
 
 function isValidUUID(id: string): boolean {
@@ -392,26 +392,24 @@ export default function PhotoResult() {
       const uploadedCuts = await Promise.all(
         photos.filter(Boolean).map(async (photo, i) => {
           const path = `sessions/${sessionId}/shots/${i + 1}-${safeCode}-${safeUser}.png`;
-          await uploadDataUrlToStorage(path, photo);
-          return { shot_order: i + 1, original_path: path, processed_path: path, is_transparent_png: true };
+          const serverPath = await uploadDataUrlToStorage(path, photo);
+          return { shot_order: i + 1, original_path: serverPath, processed_path: serverPath, is_transparent_png: true };
         })
       );
 
       let previewPath: string | undefined;
       if (finalImageUrl) {
-        previewPath = `sessions/${sessionId}/preview/${safeTitle}-${safeCode}-${safeUser}.png`;
-        await uploadDataUrlToStorage(previewPath, finalImageUrl);
+        const clientPath = `sessions/${sessionId}/preview/${safeTitle}-${safeCode}-${safeUser}.png`;
+        previewPath = await uploadDataUrlToStorage(clientPath, finalImageUrl);
       }
 
       const createdSession = await api.sessions.create({
         frame_id: resolvedFrameId,
-        frame_owner_id: frameOwnerIdFromState || authUserId,
         source_type: sourceType === "other_frame" ? "other_frame" : "own_frame",
         user_message: message || undefined,
         result_image_path: previewPath,
         result_thumbnail_path: previewPath,
         is_saved: true,
-        display_user_id: userId,
         photos: uploadedCuts,
       });
 
