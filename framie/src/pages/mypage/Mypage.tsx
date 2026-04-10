@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import h1 from "../../assets/Mypage.svg";
 import { api, isLoggedIn } from "../../lib/api";
-import { getStorageUrl } from "../../utils/storage";
 import { downloadImage, formatDate } from "../../utils/download";
 import { PRIMARY, MUTED, TEXT_MAIN, BORDER, SOFT_PANEL, SOFT_CARD } from "../../styles/theme";
 import DownloadIcon from "../../components/DownloadIcon";
@@ -107,14 +106,14 @@ export default function Mypage() {
             </div>
 
             {/* 결과 이미지 */}
-            {(selectedSession.result_image_path ?? selectedSession.result_thumbnail_path) && (
+            {(selectedSession.result_image_url ?? selectedSession.result_thumbnail_url) && (
               <div style={{ marginBottom: "20px" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
                   <p style={{ margin: 0, fontSize: "13px", fontWeight: 700, color: MUTED }}>결과 이미지</p>
                   <button
                     type="button"
                     onClick={() => {
-                      const url = getStorageUrl(selectedSession.result_image_path ?? selectedSession.result_thumbnail_path);
+                      const url = selectedSession.result_image_url ?? selectedSession.result_thumbnail_url;
                       if (url) downloadImage(url, `framie-${selectedSession.share_code?.code ?? selectedSession.id}.png`);
                     }}
                     aria-label="저장"
@@ -124,7 +123,7 @@ export default function Mypage() {
                   </button>
                 </div>
                 <img
-                  src={getStorageUrl(selectedSession.result_image_path ?? selectedSession.result_thumbnail_path)!}
+                  src={(selectedSession.result_image_url ?? selectedSession.result_thumbnail_url)!}
                   alt="결과"
                   style={{ width: "100%", borderRadius: "18px", objectFit: "contain", background: "#f0f3ff" }}
                 />
@@ -139,7 +138,7 @@ export default function Mypage() {
                   {[...selectedSession.photos]
                     .sort((a, b) => a.shot_order - b.shot_order)
                     .map((photo) => {
-                      const url = getStorageUrl(photo.processed_path ?? photo.original_path);
+                      const url = photo.photo_url;
                       return (
                         <div key={photo.id} style={{ position: "relative", aspectRatio: "1 / 1", borderRadius: "16px", overflow: "hidden", background: "#eef0fb" }}>
                           {url ? (
@@ -230,10 +229,10 @@ export default function Mypage() {
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "16px" }}>
               {visibleSessions.map((session) => {
-                const thumbUrl = getStorageUrl(session.result_thumbnail_path ?? session.result_image_path);
+                const thumbUrl = session.result_thumbnail_url ?? session.result_image_url;
                 const frameTitle = session.frame?.title ?? `${session.frame?.shot_count ?? ""}컷`;
                 const photoCount = session.photos?.length ?? 0;
-                const fullUrl = getStorageUrl(session.result_image_path ?? session.result_thumbnail_path);
+                const fullUrl = session.result_image_url ?? session.result_thumbnail_url;
                 return (
                   <div key={session.id} role="button" tabIndex={0}
                     onClick={() => setSelectedSession(session)}
