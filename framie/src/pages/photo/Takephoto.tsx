@@ -3,13 +3,14 @@ import h1 from "../../assets/frame_photo.svg";
 import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "../../lib/api";
 import { useCamera } from "../../hooks/useCamera";
+import useBrightnessCheck from "../../hooks/useBrightnessCheck";
 import { compositeOverlay, blobToDataUrl, captureVideoFrame } from "../../utils/canvas";
 import BackButton from "../../components/BackButton";
 import { PRIMARY_DARK as PRIMARY } from "../../styles/theme";
 import type { ResultPayload } from "../../types/photos";
 
 async function removeBackground(imageBlob: Blob) {
-  return api.images.removeBg(imageBlob);
+  return api.images.removeBg(imageBlob, AbortSignal.timeout(60000));
 }
 
 export default function TakePhoto() {
@@ -35,6 +36,8 @@ export default function TakePhoto() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [isCountingDown, setIsCountingDown] = useState(false);
+  // 커스텀 촬영은 rembg를 안 타므로 경고 불필요
+  const brightness = useBrightnessCheck(videoRef, isCountingDown || isProcessing || isCustomShoot);
 
   const shotSlots = useMemo(() => Array.from({ length: shotCount }, (_, index) => index), [shotCount]);
 
@@ -289,6 +292,34 @@ export default function TakePhoto() {
                 ? `${(retakeIndex as number) + 1} / ${shotCount} 컷 재촬영 중`
                 : `${Math.min(currentShotIndex + 1, shotCount)} / ${shotCount} 컷 진행 중`}
             </div>
+
+            {!isCustomShoot && (brightness === "too_bright" || brightness === "too_dark") ? (
+              <div
+                role="alert"
+                style={{
+                  position: "absolute",
+                  top: 64,
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  zIndex: 1,
+                  padding: "10px 16px",
+                  borderRadius: 999,
+                  background:
+                    brightness === "too_bright"
+                      ? "rgba(255, 159, 28, 0.92)"
+                      : "rgba(40, 48, 70, 0.92)",
+                  color: "#ffffff",
+                  fontWeight: 600,
+                  fontSize: 14,
+                  whiteSpace: "nowrap",
+                  boxShadow: "0 8px 20px rgba(15, 23, 42, 0.22)",
+                }}
+              >
+                {brightness === "too_bright"
+                  ? "배경이 너무 밝아서 배경 제거가 원활하지 않을 수 있어요"
+                  : "배경이 너무 어두워서 배경 제거가 원활하지 않을 수 있어요"}
+              </div>
+            ) : null}
 
             {isCountingDown && countdown ? (
               <div

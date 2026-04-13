@@ -389,13 +389,17 @@ export default function PhotoResult() {
       const safeUser = getSafeFilePart(userId, "guest");
       const safeTitle = getSafeFilePart(frameTitle || `frame-${shotCount}`, `frame-${shotCount}`);
 
-      const uploadedCuts = await Promise.all(
-        photos.filter(Boolean).map(async (photo, i) => {
-          const path = `sessions/${sessionId}/shots/${i + 1}-${safeCode}-${safeUser}.png`;
-          const serverPath = await uploadDataUrlToStorage(path, photo);
-          return { shot_order: i + 1, original_path: serverPath, processed_path: serverPath, is_transparent_png: true };
-        })
-      );
+      const uploadedCuts: Array<{ shot_order: number; original_path: string; processed_path: string; is_transparent_png: true }> = [];
+      for (const [i, photo] of photos.filter(Boolean).entries()) {
+        const path = `sessions/${sessionId}/shots/${i + 1}-${safeCode}-${safeUser}.png`;
+        const serverPath = await uploadDataUrlToStorage(path, photo);
+        uploadedCuts.push({
+          shot_order: i + 1,
+          original_path: serverPath,
+          processed_path: serverPath,
+          is_transparent_png: true,
+        });
+      }
 
       let previewPath: string | undefined;
       if (finalImageUrl) {
