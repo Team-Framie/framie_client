@@ -98,7 +98,7 @@ export const api = {
   },
 
   images: {
-    async removeBg(imageBlob: Blob): Promise<Blob> {
+    async removeBg(imageBlob: Blob, signal?: AbortSignal): Promise<Blob> {
       const token = await getToken();
       const formData = new FormData();
       formData.append("image", imageBlob, "capture.png");
@@ -106,6 +106,7 @@ export const api = {
         method: "POST",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: formData,
+        signal,
       });
       if (!res.ok) {
         if (res.status === 401 && token) handleUnauthorized();
